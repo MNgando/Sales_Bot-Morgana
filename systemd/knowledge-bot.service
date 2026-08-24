@@ -1,0 +1,20 @@
+[Unit]
+Description=Istari Knowledge Bot (Morgana) — read-only Slack Q&A bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/opt/istari/agent/knowledge-bot
+EnvironmentFile=/etc/istari/knowledge-bot.env
+ExecStart=/usr/bin/node /opt/istari/agent/knowledge-bot/bot.js
+Restart=on-failure
+RestartSec=10
+MemoryMax=512M
+StandardOutput=append:/var/log/knowledge-bot.log
+StandardError=append:/var/log/knowledge-bot.log
+
+[Install]
+WantedBy=multi-user.target

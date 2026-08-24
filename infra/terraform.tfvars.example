@@ -1,0 +1,22 @@
+# Copy to terraform.tfvars and fill in from the target AWS account.
+# Discover these with the AWS CLI (see infra/README.md).
+
+# The VPC the bot runs in (same one signal-bot uses).
+vpc_id = "vpc-xxxxxxxxxxxxxxxxx"
+
+# An existing NAT Gateway in that VPC, reused for egress.
+nat_gateway_id = "nat-xxxxxxxxxxxxxxxxx"
+
+# AZ of that NAT Gateway (avoid cross-AZ charges).
+availability_zone = "us-east-1a"
+
+# A free /24 inside the VPC CIDR that does NOT overlap signal-bot's 10.10.200.0/24.
+subnet_cidr = "10.10.201.0/24"
+
+# GitHub org/repo the instance clones at boot. Must exist and contain this code.
+repo_path = "istari-digital-internal/knowledge-bot"
+
+# Optional overrides:
+# aws_region         = "us-east-1"
+# instance_type      = "t4g.micro"
+# monthly_budget_usd = 25

@@ -1,0 +1,44 @@
+display_information:
+  name: Morgana
+  description: Read-only assistant — answers questions from Jira, Confluence, GitHub, Slack, and Istari
+  background_color: "#1a1a2e"
+
+features:
+  bot_user:
+    display_name: Morgana
+    always_online: true
+
+oauth_config:
+  scopes:
+    bot:
+      # Read-only footprint — the only "write" is posting the bot's own replies.
+      - app_mentions:read
+      - chat:write
+      - channels:history      # read messages in public channels the bot is in
+      - channels:read
+      - groups:history        # only needed if BOT_CHANNEL_ID is a private channel
+      - groups:read
+      - users:read
+    user:
+      # Enables cross-channel search.messages (bot tokens can't search). The bot
+      # only uses this if SLACK_USER_TOKEN is set in .env; searches as the
+      # installing user. Remove if you don't want a user token.
+      - search:read
+
+settings:
+  event_subscriptions:
+    # Socket Mode: no request URL needed (outbound WebSocket).
+    bot_events:
+      - app_mention
+      # message.channels lets the bot see non-mention replies so it can carry a
+      # threaded conversation without being re-tagged. It only acts on replies in
+      # threads it already joined (see handleMessage in bot.js). Requires the
+      # channels:history scope (already granted). Add message.groups if the bot's
+      # channel is private.
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: false
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
