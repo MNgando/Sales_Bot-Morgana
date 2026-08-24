@@ -51,7 +51,7 @@ Est. cost: ~**$3/mo** (t4g.micro) — NAT is already paid for by the shared VPC.
 cd infra
 cp terraform.tfvars.example terraform.tfvars   # then fill in vpc_id, nat_gateway_id, az, subnet_cidr
 
-terraform init      # if the S3 backend bucket/key differ, edit main.tf first
+terraform init      # local state (terraform.tfstate in this dir) — see main.tf
 terraform plan      # review — should create ~11 resources, destroy 0
 terraform apply
 ```
