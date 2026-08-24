@@ -37,9 +37,9 @@ variable "root_volume_gb" {
 }
 
 variable "repo_path" {
-  description = "GitHub org/repo holding this bot's code. Cloned over HTTPS at first boot using GITHUB_PAT from Secrets Manager. PREREQUISITE: the code must be pushed here first (it is currently only a local folder)."
+  description = "GitHub owner/repo holding this bot's code. Cloned over HTTPS at first boot using GITHUB_PAT from Secrets Manager. The GITHUB_PAT must have read access to it."
   type        = string
-  default     = "istari-digital-internal/knowledge-bot"
+  default     = "MNgando/Sales_Bot-Morgana"
 }
 
 variable "monthly_budget_usd" {
