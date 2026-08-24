@@ -43,31 +43,49 @@ function isBotMessage(m, botUserId) {
   return !!(m.bot_id || (botUserId && m.user === botUserId));
 }
 
-// Fetch up to 20 messages of a thread once. Returns [] on error (context is
-// best-effort — a fetch failure must never sink the answer).
+// How many of the most recent thread turns to feed Claude as context. Bounds the
+// token cost on long threads while always keeping the RECENT turns (the ones that
+// matter for a follow-up). ~30 turns is plenty for a Slack Q&A thread.
+const MAX_HISTORY_TURNS = 30;
+
+// Fetch a thread's messages (oldest→newest), paginating so we get the WHOLE thread
+// — Slack returns pages oldest-first, so a single small page would miss the recent
+// turns in a long thread, which is exactly the context we most need. Bounded to a
+// few pages so a runaway thread can't stall the reply. [] on error (best-effort).
 async function fetchThreadMessages(client, channel, threadTs) {
   if (!threadTs) return [];
+  const all = [];
+  let cursor;
   try {
-    const res = await client.conversations.replies({ channel, ts: threadTs, limit: 20 });
-    return res.messages || [];
+    for (let page = 0; page < 5; page++) {
+      const res = await client.conversations.replies({ channel, ts: threadTs, limit: 100, cursor });
+      if (res.messages) all.push(...res.messages);
+      cursor = res.response_metadata && res.response_metadata.next_cursor;
+      if (!cursor) break;
+    }
   } catch (err) {
     console.warn(`⚠️  Could not fetch thread: ${err.message}`);
-    return [];
   }
+  return all;
 }
 
-// Turn raw thread messages into Claude turns, keeping only those posted BEFORE
-// the triggering message (so the ack and the trigger itself are excluded). Bot
-// messages map to `assistant`, everyone else to `user`.
+// Turn raw thread messages into Claude turns, keeping only those posted BEFORE the
+// triggering message (so the ack and the trigger itself are excluded). Bot messages
+// map to `assistant`, everyone else to `user`. Keeps the most recent
+// MAX_HISTORY_TURNS turns, and trims any leading assistant turns so the history
+// starts with a user turn (the Messages API requires the first message to be user).
 function buildHistory(messages, botUserId, beforeTs) {
   const cutoff = parseFloat(beforeTs);
-  return messages
+  const turns = messages
     .filter((m) => parseFloat(m.ts) < cutoff)
     .map((m) => ({
       role: isBotMessage(m, botUserId) ? 'assistant' : 'user',
       content: stripBotMention(m.text || '', botUserId),
     }))
-    .filter((m) => m.content);
+    .filter((m) => m.content)
+    .slice(-MAX_HISTORY_TURNS);
+  while (turns.length && turns[0].role === 'assistant') turns.shift();
+  return turns;
 }
 
 // True if Morgana has already posted in this thread — the gate for answering a
@@ -82,7 +100,7 @@ function botIsInThread(messages, botUserId) {
  * path and the thread-follow-up path.
  */
 async function answerAndReply({ client, channel, threadTs, question, history, who }) {
-  console.log(`\n📨 ${who}: "${question.slice(0, 80)}"`);
+  console.log(`\n📨 ${who}: "${question.slice(0, 80)}"  [context: ${history.length} prior turns]`);
 
   let thinking = null;
   try {
