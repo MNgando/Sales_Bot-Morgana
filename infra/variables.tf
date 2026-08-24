@@ -9,7 +9,7 @@ variable "vpc_id" {
 }
 
 variable "subnet_cidr" {
-  description = "CIDR for knowledge-bot's own private subnet. Must be a free range inside the VPC CIDR and must NOT collide with signal-bot's subnet (that one uses 10.10.200.0/24). Verify with `aws ec2 describe-subnets`."
+  description = "CIDR for sales-bot-morgana's own private subnet. Must be a free range inside the VPC CIDR and must NOT collide with signal-bot's subnet (that one uses 10.10.200.0/24). Verify with `aws ec2 describe-subnets`."
   type        = string
   default     = "10.10.201.0/24"
 }
@@ -43,7 +43,7 @@ variable "repo_path" {
 }
 
 variable "monthly_budget_usd" {
-  description = "Monthly USD cap on Project=istari-knowledge-bot tagged resources. t4g.micro is ~$3/mo; $25 gives generous buffer."
+  description = "Monthly USD cap on Project=istari-sales-bot-morgana tagged resources. t4g.micro is ~$3/mo; $25 gives generous buffer."
   type        = number
   default     = 25
 }

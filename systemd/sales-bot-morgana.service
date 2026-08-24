@@ -1,0 +1,20 @@
+[Unit]
+Description=Istari Sales Bot Morgana (Morgana) — read-only Slack Q&A bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/opt/istari/agent/sales-bot-morgana
+EnvironmentFile=/etc/istari/sales-bot-morgana.env
+ExecStart=/usr/bin/node /opt/istari/agent/sales-bot-morgana/bot.js
+Restart=on-failure
+RestartSec=10
+MemoryMax=512M
+StandardOutput=append:/var/log/sales-bot-morgana.log
+StandardError=append:/var/log/sales-bot-morgana.log
+
+[Install]
+WantedBy=multi-user.target

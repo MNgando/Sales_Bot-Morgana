@@ -1,4 +1,4 @@
-resource "aws_security_group" "knowledge_bot" {
+resource "aws_security_group" "sales_bot_morgana" {
   name        = "${local.service_name}-sg"
   description = "Egress-only SG for ${local.service_name}; Slack Socket Mode is outbound."
   vpc_id      = var.vpc_id
@@ -16,16 +16,16 @@ resource "aws_security_group" "knowledge_bot" {
   }
 }
 
-resource "aws_instance" "knowledge_bot" {
+resource "aws_instance" "sales_bot_morgana" {
   ami                    = data.aws_ami.al2023_arm64.id
   instance_type          = var.instance_type
-  subnet_id              = aws_subnet.knowledge_bot.id
-  vpc_security_group_ids = [aws_security_group.knowledge_bot.id]
-  iam_instance_profile   = aws_iam_instance_profile.knowledge_bot.name
+  subnet_id              = aws_subnet.sales_bot_morgana.id
+  vpc_security_group_ids = [aws_security_group.sales_bot_morgana.id]
+  iam_instance_profile   = aws_iam_instance_profile.sales_bot_morgana.name
 
   # Egress must exist before first boot: user-data clones the repo and reads
   # Secrets Manager over the NAT.
-  depends_on = [aws_route_table_association.knowledge_bot]
+  depends_on = [aws_route_table_association.sales_bot_morgana]
 
   root_block_device {
     volume_type = "gp3"
@@ -43,7 +43,7 @@ resource "aws_instance" "knowledge_bot" {
     secret_name = local.secret_name
     aws_region  = var.aws_region
     repo_path   = var.repo_path
-    log_group   = aws_cloudwatch_log_group.knowledge_bot.name
+    log_group   = aws_cloudwatch_log_group.sales_bot_morgana.name
   })
 
   tags = {

@@ -24,7 +24,7 @@ function headers() {
   return {
     Authorization: `Bearer ${process.env.ISTARI_API_TOKEN}`,
     Accept: 'application/json',
-    'User-Agent': 'istari-knowledge-bot',
+    'User-Agent': 'istari-sales-bot-morgana',
   };
 }
 

@@ -1,20 +1,20 @@
 # infra/ — production deploy (Terraform → EC2 + systemd)
 
-Runs Morgana (the knowledge bot) as a long-lived service on a single EC2 instance,
+Runs Morgana (the Sales Bot) as a long-lived service on a single EC2 instance,
 ported from the internal **signal-bot** infra. Socket Mode is outbound-only, so the
 box has **no public IP and no inbound rules** — just egress via a shared NAT gateway.
 
-What Terraform creates (all tagged `Project=istari-knowledge-bot`):
+What Terraform creates (all tagged `Project=istari-sales-bot-morgana`):
 
 - **EC2** — Amazon Linux 2023 **arm64** (`t4g.micro`), gp3 encrypted root, IMDSv2-only,
   in a **dedicated private subnet** with a default route to the VPC's existing NAT.
 - **Egress-only security group** (no inbound).
-- **Secrets Manager** secret `istari-knowledge-bot` (all the bot's env vars) + an
+- **Secrets Manager** secret `istari-sales-bot-morgana` (all the bot's env vars) + an
   instance IAM role scoped to `GetSecretValue` on *just that secret* and CloudWatch
   Logs put. **SSM Session Manager** for shell access (no SSH/bastion).
-- **CloudWatch** log group `/knowledge-bot` (90-day retention) + a monthly **Budget**.
+- **CloudWatch** log group `/sales-bot-morgana` (90-day retention) + a monthly **Budget**.
 - **First-boot user-data** — installs Node 20, clones the repo, `npm ci --omit=dev`,
-  writes `/etc/istari/knowledge-bot.env` from Secrets Manager, enables the **systemd**
+  writes `/etc/istari/sales-bot-morgana.env` from Secrets Manager, enables the **systemd**
   unit (`Restart=on-failure`).
 
 Est. cost: ~**$3/mo** (t4g.micro) — NAT is already paid for by the shared VPC.
@@ -24,7 +24,7 @@ Est. cost: ~**$3/mo** (t4g.micro) — NAT is already paid for by the shared VPC.
 ## Prerequisites (do these first)
 
 1. **Push this code to the repo the instance will clone.** It's currently only a
-   local folder. Create a private repo (default `istari-digital-internal/knowledge-bot`)
+   local folder. Create a private repo (default `istari-digital-internal/sales-bot-morgana`)
    and push — including `package-lock.json` (user-data runs `npm ci`). `.env` is
    git-ignored and must NOT be committed; runtime config comes from Secrets Manager.
 2. **Tools + AWS creds** on the machine doing the deploy:
@@ -60,25 +60,25 @@ The secret is seeded with `REPLACE_ME` placeholders so `apply` succeeds. Load th
 values (out of band — never commit them):
 
 ```bash
-cp knowledge-bot.secrets.json.example knowledge-bot.secrets.json   # fill in real tokens
+cp sales-bot-morgana.secrets.json.example sales-bot-morgana.secrets.json   # fill in real tokens
 aws secretsmanager put-secret-value \
-  --secret-id istari-knowledge-bot \
-  --secret-string file://knowledge-bot.secrets.json
-rm knowledge-bot.secrets.json     # don't leave secrets on disk / never commit
+  --secret-id istari-sales-bot-morgana \
+  --secret-string file://sales-bot-morgana.secrets.json
+rm sales-bot-morgana.secrets.json     # don't leave secrets on disk / never commit
 ```
 
 Then reboot the instance (or re-run bootstrap over SSM) so it picks up the real env:
 
 ```bash
 aws ssm start-session --target "$(terraform output -raw instance_id)"
-#   on the box:  sudo /opt/istari/agent/knowledge-bot/scripts/bootstrap-env.sh istari-knowledge-bot \
-#                && sudo systemctl restart knowledge-bot
+#   on the box:  sudo /opt/istari/agent/sales-bot-morgana/scripts/bootstrap-env.sh istari-sales-bot-morgana \
+#                && sudo systemctl restart sales-bot-morgana
 ```
 
 ## Verify
 
 ```bash
-aws logs tail /knowledge-bot --follow          # expect "Morgana is running (Socket Mode)"
+aws logs tail /sales-bot-morgana --follow          # expect "Morgana is running (Socket Mode)"
 ```
 Then `@Morgana` a question in `C0BH2CE7LBB`. Note: only **one** instance may run at a
 time (Socket Mode splits events across duplicates) — stop the local `npm start` before
@@ -88,8 +88,8 @@ the EC2 box goes live.
 
 Push to the repo, then on the box (via SSM):
 ```bash
-cd /opt/istari/agent/knowledge-bot && sudo -u ec2-user git pull --ff-only \
-  && sudo -u ec2-user npm ci --omit=dev && sudo systemctl restart knowledge-bot
+cd /opt/istari/agent/sales-bot-morgana && sudo -u ec2-user git pull --ff-only \
+  && sudo -u ec2-user npm ci --omit=dev && sudo systemctl restart sales-bot-morgana
 ```
 
 ## Teardown
@@ -105,5 +105,5 @@ terraform destroy    # removes the EC2/subnet/SG/role/log group/budget
   `CLAUDE_API_KEY`, and read-only source creds (Atlassian/GitHub/HubSpot).
 - `GITHUB_TOKEN` is a **runtime** secret here (the GitHub *source* uses it), in
   addition to the boot-time `GITHUB_PAT` clone token — they may be the same value.
-- Everything renamed `signal-bot` → `knowledge-bot`; subnet default moved to
+- Everything renamed `signal-bot` → `sales-bot-morgana`; subnet default moved to
   `10.10.201.0/24` to avoid colliding with signal-bot.

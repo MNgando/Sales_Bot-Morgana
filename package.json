@@ -1,7 +1,7 @@
 {
-  "name": "istari-knowledge-bot",
+  "name": "istari-sales-bot-morgana",
   "version": "0.1.0",
-  "description": "Istari Knowledge Bot — read-only Slack Q&A bot answering from Jira/Confluence/GitHub/Slack/Istari via a Claude tool-use loop",
+  "description": "Istari Sales Bot Morgana — read-only Slack Q&A bot answering from Jira/Confluence/GitHub/Slack/Istari via a Claude tool-use loop",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",

@@ -13,7 +13,7 @@ terraform {
   # If your account/bucket differ, change these before `terraform init`.
   backend "s3" {
     bucket       = "istari-deploy-agent-tfstate"
-    key          = "knowledge-bot/terraform.tfstate"
+    key          = "sales-bot-morgana/terraform.tfstate"
     region       = "us-east-1"
     encrypt      = true
     use_lockfile = true
@@ -25,7 +25,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "istari-knowledge-bot" # cost-allocation tag the AWS Budget filters on
+      Project     = "istari-sales-bot-morgana" # cost-allocation tag the AWS Budget filters on
       Service     = local.service_name
       Owner       = "customer-success"
       Environment = "internal"
@@ -35,6 +35,6 @@ provider "aws" {
 }
 
 locals {
-  service_name = "knowledge-bot" # Slack display name is "Morgana"
-  secret_name  = "istari-knowledge-bot"
+  service_name = "sales-bot-morgana" # Slack display name is "Morgana"
+  secret_name  = "istari-sales-bot-morgana"
 }

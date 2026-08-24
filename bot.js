@@ -1,5 +1,5 @@
 /**
- * Istari Knowledge Bot ("Morgana") — entry point.
+ * Istari Sales Bot Morgana ("Morgana") — entry point.
  *
  * A read-only Slack Q&A bot. Answers in one channel via a Claude tool-use loop
  * over read-only sources (Jira/Confluence/GitHub/Slack), replying in-thread.
@@ -232,7 +232,7 @@ if (require.main === module) {
     process.on('SIGINT', () => shutdown('SIGINT'));
 
     await app.start();
-    console.log('⚡ Istari Knowledge Bot ("Morgana") is running (Socket Mode)');
+    console.log('⚡ Sales Bot Morgana is running (Socket Mode)');
     console.log(`📡 Listening on channel: ${channelGuard.allowedChannelId()}`);
     const enabled = sources.enabledSources();
     console.log(`🔌 Enabled sources: ${enabled.length ? enabled.join(', ') : 'NONE (Claude will answer from its own knowledge only)'}`);

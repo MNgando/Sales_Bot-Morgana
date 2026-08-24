@@ -1,4 +1,4 @@
-# Dedicated private subnet for knowledge-bot inside the existing VPC (same VPC
+# Dedicated private subnet for sales-bot-morgana inside the existing VPC (same VPC
 # signal-bot runs in).
 #
 # Why a separate subnet instead of reusing another bot's:
@@ -11,7 +11,7 @@
 # The only reference to shared infrastructure is the NAT Gateway ID in the
 # default route below — read-only (we point at it, we don't own it).
 
-resource "aws_subnet" "knowledge_bot" {
+resource "aws_subnet" "sales_bot_morgana" {
   vpc_id                  = var.vpc_id
   cidr_block              = var.subnet_cidr
   availability_zone       = var.availability_zone
@@ -22,7 +22,7 @@ resource "aws_subnet" "knowledge_bot" {
   }
 }
 
-resource "aws_route_table" "knowledge_bot" {
+resource "aws_route_table" "sales_bot_morgana" {
   vpc_id = var.vpc_id
 
   tags = {
@@ -31,13 +31,13 @@ resource "aws_route_table" "knowledge_bot" {
 }
 
 # Default route to the internet via the existing NAT Gateway.
-resource "aws_route" "knowledge_bot_nat" {
-  route_table_id         = aws_route_table.knowledge_bot.id
+resource "aws_route" "sales_bot_morgana_nat" {
+  route_table_id         = aws_route_table.sales_bot_morgana.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = var.nat_gateway_id
 }
 
-resource "aws_route_table_association" "knowledge_bot" {
-  subnet_id      = aws_subnet.knowledge_bot.id
-  route_table_id = aws_route_table.knowledge_bot.id
+resource "aws_route_table_association" "sales_bot_morgana" {
+  subnet_id      = aws_subnet.sales_bot_morgana.id
+  route_table_id = aws_route_table.sales_bot_morgana.id
 }

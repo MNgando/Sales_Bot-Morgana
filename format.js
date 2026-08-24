@@ -1,8 +1,8 @@
 /**
  * Slack Block Kit rendering for the bot's answer.
  *
- * Simplified from the internal signal-bot's ticket-format.buildSlackBlocks — the
- * knowledge bot posts a plain answer plus a compact "Sources" context line noting
+ * Simplified from the internal signal-bot's ticket-format.buildSlackBlocks —
+ * Morgana posts a plain answer plus a compact "Sources" context line noting
  * which read-only tools were consulted.
  */
 

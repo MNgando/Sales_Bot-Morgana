@@ -1,4 +1,4 @@
-resource "aws_secretsmanager_secret" "knowledge_bot" {
+resource "aws_secretsmanager_secret" "sales_bot_morgana" {
   name                    = local.secret_name
   description             = "Env vars for ${local.service_name} (Morgana): Slack/Anthropic/Atlassian/GitHub/HubSpot tokens + GitHub PAT for first-boot clone."
   recovery_window_in_days = 7
@@ -8,13 +8,13 @@ resource "aws_secretsmanager_secret" "knowledge_bot" {
 
 # Seeds the secret with placeholders so `terraform apply` succeeds before the
 # real tokens are loaded. Set real values out of band (never commit them):
-#   aws secretsmanager put-secret-value --secret-id istari-knowledge-bot \
-#     --secret-string file://knowledge-bot.secrets.json
+#   aws secretsmanager put-secret-value --secret-id istari-sales-bot-morgana \
+#     --secret-string file://sales-bot-morgana.secrets.json
 #
 # Non-secret values (channel id, org, portal id, Jira URL) are pre-filled with the
 # known-good values; the REPLACE_ME entries are the actual secrets.
-resource "aws_secretsmanager_secret_version" "knowledge_bot_placeholder" {
-  secret_id = aws_secretsmanager_secret.knowledge_bot.id
+resource "aws_secretsmanager_secret_version" "sales_bot_morgana_placeholder" {
+  secret_id = aws_secretsmanager_secret.sales_bot_morgana.id
 
   secret_string = jsonencode({
     # Slack

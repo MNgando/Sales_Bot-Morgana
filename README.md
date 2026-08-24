@@ -1,4 +1,4 @@
-# Istari Knowledge Bot
+# Istari Sales Bot Morgana
 
 A **read-only** Slack Q&A bot. Mention it in its channel and it answers by pulling
 live data from Istari's knowledge sources — **Jira, Confluence, GitHub, Slack, and
@@ -70,7 +70,7 @@ npm install
    **`search:read`** user scope; after install, copy the **User OAuth Token**
    (`xoxp-…`) → `SLACK_USER_TOKEN`. Without it, the Slack source only reads recent
    history of the bot channel.
-5. **Invite the bot** to the channel: `/invite @knowledge-bot` in `C0BH2CE7LBB`.
+5. **Invite the bot** to the channel: `/invite @sales-bot-morgana` in `C0BH2CE7LBB`.
 
 ### 3. Configure
 ```bash

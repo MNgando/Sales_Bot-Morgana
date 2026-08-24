@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Pull the knowledge-bot secret from AWS Secrets Manager and write it as a systemd
-# EnvironmentFile at /etc/istari/knowledge-bot.env. Re-runnable.
+# Pull the sales-bot-morgana secret from AWS Secrets Manager and write it as a systemd
+# EnvironmentFile at /etc/istari/sales-bot-morgana.env. Re-runnable.
 #
 # Usage: sudo ./bootstrap-env.sh [secret-name]
 #   AWS_REGION defaults to us-east-1.
 set -euo pipefail
 
-SECRET_NAME="${1:-istari-knowledge-bot}"
+SECRET_NAME="${1:-istari-sales-bot-morgana}"
 REGION="${AWS_REGION:-us-east-1}"
-OUT="/etc/istari/knowledge-bot.env"
+OUT="/etc/istari/sales-bot-morgana.env"
 
 mkdir -p "$(dirname "$OUT")"
 umask 077

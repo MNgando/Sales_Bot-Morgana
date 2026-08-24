@@ -1,4 +1,4 @@
-data "aws_iam_policy_document" "knowledge_bot_assume" {
+data "aws_iam_policy_document" "sales_bot_morgana_assume" {
   statement {
     actions = ["sts:AssumeRole"]
     principals {
@@ -8,16 +8,16 @@ data "aws_iam_policy_document" "knowledge_bot_assume" {
   }
 }
 
-resource "aws_iam_role" "knowledge_bot" {
+resource "aws_iam_role" "sales_bot_morgana" {
   name               = "${local.service_name}-role"
-  assume_role_policy = data.aws_iam_policy_document.knowledge_bot_assume.json
+  assume_role_policy = data.aws_iam_policy_document.sales_bot_morgana_assume.json
 }
 
-data "aws_iam_policy_document" "knowledge_bot_inline" {
+data "aws_iam_policy_document" "sales_bot_morgana_inline" {
   statement {
     sid       = "ReadSecret"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [aws_secretsmanager_secret.knowledge_bot.arn]
+    resources = [aws_secretsmanager_secret.sales_bot_morgana.arn]
   }
 
   # CloudWatch agent ships /var/log logs to our log group only. CreateLogGroup is
@@ -31,25 +31,25 @@ data "aws_iam_policy_document" "knowledge_bot_inline" {
       "logs:DescribeLogStreams",
     ]
     resources = [
-      aws_cloudwatch_log_group.knowledge_bot.arn,
-      "${aws_cloudwatch_log_group.knowledge_bot.arn}:*",
+      aws_cloudwatch_log_group.sales_bot_morgana.arn,
+      "${aws_cloudwatch_log_group.sales_bot_morgana.arn}:*",
     ]
   }
 }
 
-resource "aws_iam_role_policy" "knowledge_bot" {
+resource "aws_iam_role_policy" "sales_bot_morgana" {
   name   = "${local.service_name}-inline"
-  role   = aws_iam_role.knowledge_bot.id
-  policy = data.aws_iam_policy_document.knowledge_bot_inline.json
+  role   = aws_iam_role.sales_bot_morgana.id
+  policy = data.aws_iam_policy_document.sales_bot_morgana_inline.json
 }
 
 # SSM Session Manager so we can shell into the instance without SSH/bastion.
 resource "aws_iam_role_policy_attachment" "ssm_core" {
-  role       = aws_iam_role.knowledge_bot.name
+  role       = aws_iam_role.sales_bot_morgana.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_instance_profile" "knowledge_bot" {
+resource "aws_iam_instance_profile" "sales_bot_morgana" {
   name = "${local.service_name}-profile"
-  role = aws_iam_role.knowledge_bot.name
+  role = aws_iam_role.sales_bot_morgana.name
 }

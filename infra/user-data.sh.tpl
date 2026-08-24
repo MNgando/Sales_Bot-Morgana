@@ -1,15 +1,15 @@
 #!/bin/bash
-# First-boot bootstrap for knowledge-bot (Morgana) on Amazon Linux 2023 (arm64).
+# First-boot bootstrap for sales-bot-morgana (Morgana) on Amazon Linux 2023 (arm64).
 # Re-runnable: package installs are idempotent, repo is pulled if already cloned.
 set -euxo pipefail
-exec > /var/log/istari-knowledge-bot-install.log 2>&1
-echo "=== Installing Knowledge Bot (Morgana) ==="
+exec > /var/log/istari-sales-bot-morgana-install.log 2>&1
+echo "=== Installing Sales Bot Morgana (Morgana) ==="
 echo "Date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 REPO_PATH="${repo_path}"
 SECRET_NAME="${secret_name}"
 export AWS_REGION="${aws_region}"
-SERVICE_NAME="knowledge-bot"
+SERVICE_NAME="sales-bot-morgana"
 INSTALL_DIR="/opt/istari/agent/$SERVICE_NAME"
 
 # nodejs20 is the AL2023 dnf package; @slack/bolt 3 needs node >=18, so 20 is safe.
@@ -38,7 +38,7 @@ chown -R ec2-user:ec2-user /opt/istari/agent
 # Install runtime deps as ec2-user (production deps only; needs package-lock.json).
 cd "$INSTALL_DIR" && sudo -u ec2-user npm ci --omit=dev
 
-# Pull the rest of the secrets into /etc/istari/knowledge-bot.env.
+# Pull the rest of the secrets into /etc/istari/sales-bot-morgana.env.
 # bootstrap-env.sh strips GITHUB_PAT (boot-time only, not a runtime concern).
 "$INSTALL_DIR/scripts/bootstrap-env.sh" "$SECRET_NAME"
 
@@ -78,4 +78,4 @@ CWEOF
   -a fetch-config -m ec2 -s \
   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 
-echo "=== Knowledge Bot installation complete ==="
+echo "=== Sales Bot Morgana installation complete ==="
