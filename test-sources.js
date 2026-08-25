@@ -16,7 +16,7 @@ require.cache[nodeFetchPath] = {
   filename: nodeFetchPath,
   loaded: true,
   exports: async (url, opts) => {
-    calls.push({ url: String(url), method: (opts && opts.method) || 'GET' });
+    calls.push({ url: String(url), method: (opts && opts.method) || 'GET', body: opts && opts.body });
     return nextResponse;
   },
 };
@@ -113,6 +113,25 @@ async function main() {
   assert.ok(calls.at(-1).url.endsWith('/crm/v3/objects/deals/search'), 'hits the deals search endpoint');
   assert.ok(calls.some((c) => c.url.endsWith('/crm/v3/pipelines/deals') && c.method === 'GET'), 'loads stage labels via a GET to the pipelines API');
   console.log('✓ hubspot_search (+ stage labels)');
+
+  // ── hubspot_search list/filter path: NO keyword, structured filters ────────
+  // "all open deals over $900k" — must send filterGroups and NOT a bogus query.
+  nextResponse = jsonResp({ total: 0, results: [] });
+  await hubspot.tools[0].run({
+    object_type: 'deals',
+    filters: [
+      { property: 'hs_is_closed', operator: 'EQ', value: 'false' },
+      { property: 'amount', operator: 'GTE', value: '900000' },
+    ],
+    sort_by: 'amount',
+    sort_dir: 'DESCENDING',
+  });
+  const sent = JSON.parse(calls.at(-1).body);
+  assert.equal(sent.query, undefined, 'no keyword query when filtering (would return nothing)');
+  assert.equal(sent.filterGroups[0].filters.length, 2, 'passes both filters');
+  assert.deepEqual(sent.filterGroups[0].filters[1], { propertyName: 'amount', operator: 'GTE', value: '900000' }, 'maps amount >= 900000');
+  assert.deepEqual(sent.sorts[0], { propertyName: 'amount', direction: 'DESCENDING' }, 'sorts by amount desc');
+  console.log('✓ hubspot_search (list + filters)');
 
   // ── registry.execute dispatches + handles unknown tools ───────────────────
   nextResponse = jsonResp({ issues: [] });

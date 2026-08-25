@@ -109,12 +109,24 @@ function summarize(objectType, props) {
   return bits.join(' · ');
 }
 
+// Operators we allow through to HubSpot's search filters (read-only conditions).
+const FILTER_OPERATORS = new Set([
+  'EQ', 'NEQ', 'LT', 'LTE', 'GT', 'GTE', 'IN', 'NOT_IN',
+  'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN', 'NOT_CONTAINS_TOKEN',
+]);
+
 const toolDef = {
   name: 'hubspot_search',
   description:
-    'Search Istari HubSpot CRM (read-only) for deals, companies, or contacts. Use ' +
-    'for sales pipeline, deal stage/amount/close date, customer/company info, and ' +
-    'contact details. Matches the keyword against the object\'s searchable fields.',
+    'Search Istari HubSpot CRM (read-only) for deals, companies, or contacts. ' +
+    'IMPORTANT: `query` is a KEYWORD/NAME match (matches a deal/company/person name), ' +
+    'NOT a filter — do NOT pass words like "deals" or "active" as query (returns nothing). ' +
+    'To LIST ALL or filter by a field, OMIT query and use `filters`. ' +
+    'Common deal properties: amount (number, USD), dealstage, pipeline, closedate, ' +
+    'hs_is_closed ("true"/"false" — use "false" for OPEN/active deals). ' +
+    'Examples: all open deals over $900k → object_type "deals", filters ' +
+    '[{property:"hs_is_closed",operator:"EQ",value:"false"},{property:"amount",operator:"GTE",value:"900000"}]. ' +
+    'A specific deal by name → query:"Hermeus".',
   input_schema: {
     type: 'object',
     properties: {
@@ -125,33 +137,83 @@ const toolDef = {
       },
       query: {
         type: 'string',
-        description: 'Keyword to search for, e.g. a deal name, company, or person.',
+        description: 'Optional keyword/NAME match (e.g. "Hermeus"). Omit to list all / filter.',
       },
-      limit: { type: 'integer', description: 'Max results (default 10, max 25).' },
+      filters: {
+        type: 'array',
+        description: 'Optional property conditions, AND-combined. Use to list/filter instead of query.',
+        items: {
+          type: 'object',
+          properties: {
+            property: { type: 'string', description: 'Property name, e.g. "amount", "dealstage", "hs_is_closed".' },
+            operator: { type: 'string', description: 'One of EQ, NEQ, LT, LTE, GT, GTE, IN, NOT_IN, HAS_PROPERTY, NOT_HAS_PROPERTY, CONTAINS_TOKEN.' },
+            value: { type: 'string', description: 'Value for single-value operators (omit for HAS_PROPERTY / NOT_HAS_PROPERTY).' },
+            values: { type: 'array', items: { type: 'string' }, description: 'Values for IN / NOT_IN.' },
+          },
+          required: ['property', 'operator'],
+        },
+      },
+      sort_by: { type: 'string', description: 'Property to sort by (e.g. "amount"). Default most recently modified.' },
+      sort_dir: { type: 'string', enum: ['ASCENDING', 'DESCENDING'], description: 'Sort direction. Default DESCENDING.' },
+      limit: { type: 'integer', description: 'Max results (default 20, max 100).' },
     },
-    required: ['query'],
   },
 };
+
+// Map the tool's filter objects to HubSpot's filter schema, dropping any with an
+// unsupported operator so a bad input can't break the whole search.
+function toHubspotFilters(filters) {
+  const out = [];
+  for (const f of filters || []) {
+    if (!f || !f.property) continue;
+    const operator = String(f.operator || '').toUpperCase();
+    if (!FILTER_OPERATORS.has(operator)) continue;
+    const filter = { propertyName: f.property, operator };
+    if (operator === 'IN' || operator === 'NOT_IN') {
+      filter.values = (f.values || []).map(String);
+    } else if (operator !== 'HAS_PROPERTY' && operator !== 'NOT_HAS_PROPERTY') {
+      if (f.value === undefined) continue; // value-taking operator with no value
+      filter.value = String(f.value);
+    }
+    out.push(filter);
+  }
+  return out;
+}
 
 async function execute(input = {}) {
   const objectType = OBJECTS[input.object_type] ? input.object_type : 'deals';
   const query = String(input.query || '').trim();
-  if (!query) return { ok: false, error: 'query is required' };
-  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 25);
+  const limit = Math.min(Math.max(Number(input.limit) || 20, 1), 100);
   const spec = OBJECTS[objectType];
 
   // Deal answers read better with stage labels — warm the (cached) map first.
   if (objectType === 'deals') await loadDealStageLabels();
 
+  // Ensure any filtered/sorted property is also returned, so results show it.
+  const properties = [...new Set([
+    ...spec.properties,
+    ...(input.filters || []).map((f) => f && f.property).filter(Boolean),
+    input.sort_by,
+  ].filter(Boolean))];
+
+  const body = { limit, properties };
+  if (query) body.query = query; // keyword/name match only when provided
+  const filters = toHubspotFilters(input.filters);
+  if (filters.length) body.filterGroups = [{ filters }];
+  body.sorts = [{
+    propertyName: input.sort_by || 'hs_lastmodifieddate',
+    direction: input.sort_dir === 'ASCENDING' ? 'ASCENDING' : 'DESCENDING',
+  }];
+
   const resp = await fetch(`${API}/crm/v3/objects/${objectType}/search`, {
     method: 'POST', // read-only search (see file header) — never a write
     headers: authHeaders(),
-    body: JSON.stringify({ query, limit, properties: spec.properties }),
+    body: JSON.stringify(body),
   });
 
   if (!resp.ok) {
-    const body = await resp.text();
-    return { ok: false, error: `HubSpot HTTP ${resp.status}: ${body.slice(0, 300)}` };
+    const text = await resp.text();
+    return { ok: false, error: `HubSpot HTTP ${resp.status}: ${text.slice(0, 300)}` };
   }
 
   const data = await resp.json();
