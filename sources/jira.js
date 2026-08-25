@@ -27,36 +27,40 @@ const toolDef = {
   name: 'jira_search',
   description:
     'Search Istari Jira Cloud issues (read-only). Use for tickets, bugs, features, ' +
-    'project status, and who is working on what. Accepts either a natural-language ' +
-    'query or a raw JQL string.',
+    'project status, and who is working on what. A plain `query` matches issue text. ' +
+    'To LIST or FILTER (by project, status, assignee, date, …), pass raw JQL with ' +
+    'is_jql=true, e.g. `project = CS AND status != Done ORDER BY created DESC`. ' +
+    'OMIT query to list the most recently updated issues.',
   input_schema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
         description:
-          'Natural-language search (matched against issue text) OR a raw JQL ' +
-          'expression, e.g. `project = CS AND status = "In Progress"`.',
+          'Free-text matched against issue text, OR a raw JQL expression when ' +
+          'is_jql=true. Omit to list recently-updated issues.',
       },
       is_jql: {
         type: 'boolean',
         description: 'Set true if `query` is already valid JQL. Default false.',
       },
-      limit: { type: 'integer', description: 'Max results (default 10, max 25).' },
+      limit: { type: 'integer', description: 'Max results (default 15, max 50).' },
     },
-    required: ['query'],
   },
 };
 
-// Escape a bare string for safe use inside a JQL `text ~ "..."` clause.
+// Escape a bare string for safe use inside a JQL `text ~ "..."` clause. When the
+// text is empty, list recently-updated issues — bounded to the last 30 days
+// because Jira Cloud rejects an unbounded `ORDER BY` with no search restriction.
 function jqlText(query) {
-  const escaped = String(query).replace(/["\\]/g, '\\$&');
-  return `text ~ "${escaped}" ORDER BY updated DESC`;
+  const text = String(query || '').trim();
+  if (!text) return 'updated >= -30d ORDER BY updated DESC';
+  return `text ~ "${text.replace(/["\\]/g, '\\$&')}" ORDER BY updated DESC`;
 }
 
 async function execute(input = {}) {
   const { query = '', is_jql = false } = input;
-  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 25);
+  const limit = Math.min(Math.max(Number(input.limit) || 15, 1), 50);
   const jql = is_jql ? String(query) : jqlText(query);
 
   const url = new URL(`${process.env.JIRA_URL}/rest/api/3/search/jql`);

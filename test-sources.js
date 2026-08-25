@@ -38,6 +38,7 @@ const sources = require('./sources');
 const jira = require('./sources/jira');
 const github = require('./sources/github');
 const hubspot = require('./sources/hubspot');
+const confluence = require('./sources/confluence');
 
 function jsonResp(obj) {
   return { ok: true, status: 200, json: async () => obj, text: async () => JSON.stringify(obj) };
@@ -88,6 +89,26 @@ async function main() {
   assert.equal(gr.results[0].repo, 'test-org/repo');
   assert.ok(new URL(calls.at(-1).url).searchParams.get('q').includes('org:test-org'), 'scopes search to the org');
   console.log('✓ github_search_code');
+
+  // ── github_search_repos: keyword → search API; no keyword → org repos list ──
+  nextResponse = jsonResp({ items: [{ full_name: 'test-org/a', description: 'x', html_url: 'https://gh/a', updated_at: '2026-01-01' }] });
+  await github.tools.find((t) => t.name === 'github_search_repos').run({ query: 'bot' });
+  assert.ok(calls.at(-1).url.includes('/search/repositories'), 'keyword uses the search API');
+  nextResponse = jsonResp([{ full_name: 'test-org/a', description: '', html_url: 'https://gh/a', updated_at: '2026-01-01' }]);
+  const repoList = await github.tools.find((t) => t.name === 'github_search_repos').run({});
+  assert.ok(calls.at(-1).url.includes('/orgs/test-org/repos'), 'no keyword lists the org repos');
+  assert.equal(repoList.results[0].name, 'test-org/a', 'parses the repo list');
+  console.log('✓ github_search_repos (search + list)');
+
+  // ── confluence_search: space scoping + list-recent (no query) + raw CQL ────
+  nextResponse = jsonResp({ results: [] });
+  await confluence.tools[0].run({ space: 'ENG' }); // no query → list recent, scoped
+  let cql = new URL(calls.at(-1).url).searchParams.get('cql');
+  assert.ok(cql.includes('space = "ENG"'), 'scopes to the space');
+  assert.ok(!cql.includes('text ~'), 'no text clause when query omitted');
+  await confluence.tools[0].run({ cql: 'label = "runbook"' }); // raw CQL passthrough
+  assert.equal(new URL(calls.at(-1).url).searchParams.get('cql'), 'label = "runbook"', 'raw cql overrides');
+  console.log('✓ confluence_search (space + list + raw cql)');
 
   // ── hubspot_search hits the read-only search endpoint (POST /search),
   //    resolves the stage id to a label, and builds a record link ────────────

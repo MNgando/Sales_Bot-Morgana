@@ -78,12 +78,15 @@ const toolDef = {
   description:
     'Search Slack messages (read-only). Use to find prior discussions, decisions, ' +
     'or answers already given in Slack. With a user token this searches the whole ' +
-    'workspace; otherwise only recent history of the bot channel.',
+    'workspace and supports Slack SEARCH OPERATORS you can combine into `query` — ' +
+    'e.g. `in:#customer-hermeus`, `from:@jane`, `after:2026-06-01`, `before:2026-07-01`, ' +
+    '`has:link` — so you can scope by channel, person, or date. Without a user token ' +
+    'it falls back to recent history of the bot channel only.',
   input_schema: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'What to search for.' },
-      limit: { type: 'integer', description: 'Max results (default 10, max 20).' },
+      query: { type: 'string', description: 'Search text and/or operators (in:/from:/after:/before:/has:).' },
+      limit: { type: 'integer', description: 'Max results (default 15, max 25).' },
     },
     required: ['query'],
   },
@@ -91,7 +94,7 @@ const toolDef = {
 
 async function execute(input = {}) {
   const { query = '' } = input;
-  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 20);
+  const limit = Math.min(Math.max(Number(input.limit) || 15, 1), 25);
   return hasUserToken()
     ? searchWorkspace(query, limit)
     : searchChannelHistory(query, limit);

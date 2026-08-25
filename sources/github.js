@@ -57,14 +57,18 @@ async function searchCode(input = {}) {
   return { ok: true, count: results.length, results };
 }
 
-// ── Tool: search repos ────────────────────────────────────────────────────────
+// ── Tool: search repos (or list the org's repos when no keyword) ──────────────
 async function searchRepos(input = {}) {
-  const { query = '' } = input;
-  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 25);
-  const q = `${query} org:${org()}`;
-  const r = await ghGet('/search/repositories', { q, per_page: String(limit) });
+  const q = String(input.query || '').trim();
+  const limit = Math.min(Math.max(Number(input.limit) || 15, 1), 50);
+  // With a keyword → code/repo search API (needs a term). Without one → the org
+  // repos list endpoint, so "what repos does the org have?" works.
+  const r = q
+    ? await ghGet('/search/repositories', { q: `${q} org:${org()}`, per_page: String(limit), sort: 'updated', order: 'desc' })
+    : await ghGet(`/orgs/${org()}/repos`, { per_page: String(limit), sort: 'updated', direction: 'desc' });
   if (!r.ok) return r;
-  const results = (r.data.items || []).map((i) => ({
+  const items = q ? (r.data.items || []) : (Array.isArray(r.data) ? r.data : []);
+  const results = items.map((i) => ({
     name: i.full_name,
     description: i.description || '',
     url: i.html_url,
@@ -109,14 +113,16 @@ const tools = [
   },
   {
     name: 'github_search_repos',
-    description: 'Search Istari GitHub repositories by name/description (read-only).',
+    description:
+      'Search or LIST Istari GitHub repositories (read-only). OMIT query to list ' +
+      'the org\'s repos (most recently updated first); pass a keyword to search by ' +
+      'name/description.',
     input_schema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Repository search terms.' },
-        limit: { type: 'integer', description: 'Max results (default 10, max 25).' },
+        query: { type: 'string', description: 'Repository search terms. Omit to list all org repos.' },
+        limit: { type: 'integer', description: 'Max results (default 15, max 50).' },
       },
-      required: ['query'],
     },
     run: searchRepos,
   },

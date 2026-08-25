@@ -33,24 +33,35 @@ const toolDef = {
   name: 'confluence_search',
   description:
     'Search Istari Confluence Cloud pages (read-only). Use for documentation, ' +
-    'runbooks, design docs, onboarding, and internal knowledge-base articles.',
+    'runbooks, design docs, onboarding, and internal knowledge-base articles. ' +
+    '`query` is a free-text match; OMIT it to list the most recent pages. Use ' +
+    '`space` (a space key like "ENG") to scope to one space. For advanced needs, ' +
+    'pass a raw CQL string as `cql` (e.g. `label = "runbook" AND lastmodified > now("-30d")`).',
   input_schema: {
     type: 'object',
     properties: {
-      query: { type: 'string', description: 'Natural-language text to search for in pages.' },
-      limit: { type: 'integer', description: 'Max results (default 10, max 25).' },
+      query: { type: 'string', description: 'Free-text to match in pages. Omit to list recent pages (optionally scoped by space).' },
+      space: { type: 'string', description: 'Optional space key to scope the search, e.g. "ENG".' },
+      cql: { type: 'string', description: 'Optional raw CQL expression. Overrides query/space when set.' },
+      limit: { type: 'integer', description: 'Max results (default 15, max 50).' },
     },
-    required: ['query'],
   },
 };
 
-async function execute(input = {}) {
-  const { query = '' } = input;
-  const limit = Math.min(Math.max(Number(input.limit) || 10, 1), 25);
+// Build a CQL string from the simple inputs (text + space), always page-type,
+// most-recently-modified first. A raw `cql` input overrides this entirely.
+function buildCql({ query, space }) {
+  const clauses = ['type = page'];
+  const text = String(query || '').trim();
+  if (text) clauses.push(`text ~ "${text.replace(/["\\]/g, '\\$&')}"`);
+  const spaceKey = String(space || '').trim();
+  if (spaceKey) clauses.push(`space = "${spaceKey.replace(/["\\]/g, '\\$&')}"`);
+  return `${clauses.join(' AND ')} ORDER BY lastmodified DESC`;
+}
 
-  // CQL: match text on page-type content, most recently modified first.
-  const escaped = String(query).replace(/["\\]/g, '\\$&');
-  const cql = `type = page AND text ~ "${escaped}" ORDER BY lastmodified DESC`;
+async function execute(input = {}) {
+  const limit = Math.min(Math.max(Number(input.limit) || 15, 1), 50);
+  const cql = String(input.cql || '').trim() || buildCql(input);
 
   const url = new URL(`${baseUrl()}/rest/api/search`);
   url.searchParams.set('cql', cql);
