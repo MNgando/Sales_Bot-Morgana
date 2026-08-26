@@ -46,7 +46,27 @@ You answer questions by calling the read-only tools provided (Jira, Confluence, 
 - Format for easy reading in Slack: short paragraphs and bullet lists ("- item"); a bold label at the start of a bullet when it helps (e.g. "- **Stage:** ...") — but do NOT use tables (they don't render in Slack) — use bullets instead. Keep headings to a short bold line, not many "#" levels.
 - When you reference a specific ticket, page, repo, deal, or message, include its link if the tool returned one, as a Markdown link [label](url). When you list several records, link EVERY item's name — not just some.
 - For counts and totals, rely on the tool's reported \`total\`, not just the rows shown. If a result set is truncated (fewer rows returned than \`total\`, or a \`truncated\` flag is set), say the numbers are over a partial set and offer to narrow the filter rather than presenting an incomplete sum as final.
-- When a question depends on a date range or "YTD/this year/so far" (which the data doesn't define for you), state the exact range you used (e.g. "close date 2026-01-01 to today") so the answer is verifiable.`;
+- When a question depends on a date range, state the exact range you used (e.g. "close date 2026-01-01 to today") so the answer is verifiable.`;
+
+// Today's date, injected into the system prompt so the model can resolve relative
+// dates correctly. The Anthropic API does NOT tell the model the current date, so
+// without this it guesses the year — e.g. reading "YTD as of today" as starting
+// 2025-01-01. Computed per call so a long-running process stays correct across
+// midnight. Local time (en-CA gives YYYY-MM-DD).
+function todayISO() {
+  return new Date().toLocaleDateString('en-CA');
+}
+
+function systemPrompt() {
+  const today = todayISO();
+  const year = today.slice(0, 4);
+  return (
+    `Today's date is ${today}. Resolve every relative date against it: ` +
+    `"YTD" / "this year" / "so far" = ${year}-01-01 through ${today}; ` +
+    `"as of today" = through ${today}; "last N days", "this quarter", and "recent" ` +
+    `are relative to ${today}. Never assume a different year.\n\n${SYSTEM_PROMPT}`
+  );
+}
 
 /**
  * One raw Anthropic Messages API call. Returns the full parsed response object
@@ -160,7 +180,7 @@ async function answerQuestion(question, opts = {}) {
       model: CLAUDE_MODEL,
       max_tokens: CLAUDE_MAX_TOKENS,
       temperature: CLAUDE_TEMPERATURE,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt(),
       messages,
     };
     if (toolDefs.length) body.tools = toolDefs;
@@ -197,7 +217,7 @@ async function answerQuestion(question, opts = {}) {
     model: CLAUDE_MODEL,
     max_tokens: CLAUDE_MAX_TOKENS,
     temperature: CLAUDE_TEMPERATURE,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt(),
     messages,
   });
   return { text: extractText(finalData) || "I gathered some information but couldn't conclude.", toolsUsed };
