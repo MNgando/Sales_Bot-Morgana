@@ -20,6 +20,10 @@ const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
 // answers room to finish instead of being cut off mid-sentence — a truncated
 // answer can end on a malformed mrkdwn link that Slack then rejects.
 const CLAUDE_MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS || 2048);
+// 0 by default: this is a factual lookup/verification bot, so we want the SAME
+// question to pick the same filters and produce the same answer, not vary run to
+// run (the API default is 1.0). Configurable if some creativity is ever wanted.
+const CLAUDE_TEMPERATURE = Number(process.env.CLAUDE_TEMPERATURE ?? 0);
 
 const CLAUDE_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const CLAUDE_MAX_ATTEMPTS = 3;
@@ -39,7 +43,9 @@ You answer questions by calling the read-only tools provided (Jira, Confluence, 
 - Choose only the tools relevant to the question instead of calling everything.
 - Be concise — this is a Slack channel, not a report. Lead with the direct answer, then supporting detail.
 - Format for easy reading in Slack: short paragraphs and bullet lists ("- item"); a bold label at the start of a bullet when it helps (e.g. "- **Stage:** ...") — but do NOT use tables (they don't render in Slack) — use bullets instead. Keep headings to a short bold line, not many "#" levels.
-- When you reference a specific ticket, page, repo, deal, or message, include its link if the tool returned one, as a Markdown link [label](url).`;
+- When you reference a specific ticket, page, repo, deal, or message, include its link if the tool returned one, as a Markdown link [label](url). When you list several records, link EVERY item's name — not just some.
+- For counts and totals, rely on the tool's reported \`total\`, not just the rows shown. If a result set is truncated (fewer rows returned than \`total\`, or a \`truncated\` flag is set), say the numbers are over a partial set and offer to narrow the filter rather than presenting an incomplete sum as final.
+- When a question depends on a date range or "YTD/this year/so far" (which the data doesn't define for you), state the exact range you used (e.g. "close date 2026-01-01 to today") so the answer is verifiable.`;
 
 /**
  * One raw Anthropic Messages API call. Returns the full parsed response object
@@ -152,6 +158,7 @@ async function answerQuestion(question, opts = {}) {
     const body = {
       model: CLAUDE_MODEL,
       max_tokens: CLAUDE_MAX_TOKENS,
+      temperature: CLAUDE_TEMPERATURE,
       system: SYSTEM_PROMPT,
       messages,
     };
@@ -188,6 +195,7 @@ async function answerQuestion(question, opts = {}) {
   const finalData = await caller({
     model: CLAUDE_MODEL,
     max_tokens: CLAUDE_MAX_TOKENS,
+    temperature: CLAUDE_TEMPERATURE,
     system: SYSTEM_PROMPT,
     messages,
   });

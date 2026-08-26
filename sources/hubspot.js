@@ -123,9 +123,17 @@ const toolDef = {
     'NOT a filter — do NOT pass words like "deals" or "active" as query (returns nothing). ' +
     'To LIST ALL or filter by a field, OMIT query and use `filters`. ' +
     'Common deal properties: amount (number, USD), dealstage, pipeline, closedate, ' +
-    'hs_is_closed ("true"/"false" — use "false" for OPEN/active deals). ' +
-    'Examples: all open deals over $900k → object_type "deals", filters ' +
+    'hs_is_closed ("true"/"false" — use "false" for OPEN/active deals), ' +
+    'hs_is_closed_won ("true"/"false"). ' +
+    'For BOOKINGS / revenue / "closed won" totals, filter to WON deals ' +
+    '(hs_is_closed_won EQ "true"), NOT hs_is_closed (which includes lost). ' +
+    'The result includes `sum_amount` (exact server-computed total of `amount` over ALL ' +
+    'matched deals) and `total` (match count) — USE THESE for totals/counts; never add ' +
+    'the rows up yourself. Results are paginated so the sum is complete unless `truncated`. ' +
+    'Examples: all open deals over $900k → filters ' +
     '[{property:"hs_is_closed",operator:"EQ",value:"false"},{property:"amount",operator:"GTE",value:"900000"}]. ' +
+    'YTD 2026 bookings → filters [{property:"hs_is_closed_won",operator:"EQ",value:"true"},' +
+    '{property:"closedate",operator:"GTE",value:"2026-01-01"}] then report sum_amount. ' +
     'A specific deal by name → query:"Hermeus".',
   input_schema: {
     type: 'object',
@@ -196,33 +204,68 @@ async function execute(input = {}) {
     input.sort_by,
   ].filter(Boolean))];
 
-  const body = { limit, properties };
-  if (query) body.query = query; // keyword/name match only when provided
+  const baseBody = { limit, properties };
+  if (query) baseBody.query = query; // keyword/name match only when provided
   const filters = toHubspotFilters(input.filters);
-  if (filters.length) body.filterGroups = [{ filters }];
-  body.sorts = [{
+  if (filters.length) baseBody.filterGroups = [{ filters }];
+  baseBody.sorts = [{
     propertyName: input.sort_by || 'hs_lastmodifieddate',
     direction: input.sort_dir === 'ASCENDING' ? 'ASCENDING' : 'DESCENDING',
   }];
 
-  const resp = await fetch(`${API}/crm/v3/objects/${objectType}/search`, {
-    method: 'POST', // read-only search (see file header) — never a write
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    return { ok: false, error: `HubSpot HTTP ${resp.status}: ${text.slice(0, 300)}` };
+  // Paginate so counts and the amount sum cover the WHOLE matching set, not just
+  // one page — a partial page is what makes hand-summed totals wrong. Bounded so a
+  // huge filter can't run away.
+  const MAX_RECORDS = 500;
+  const raw = [];
+  let after;
+  let total = 0;
+  for (let page = 0; page < 6; page++) {
+    const body = after ? { ...baseBody, after } : baseBody;
+    const resp = await fetch(`${API}/crm/v3/objects/${objectType}/search`, {
+      method: 'POST', // read-only search (see file header) — never a write
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      if (raw.length === 0) return { ok: false, error: `HubSpot HTTP ${resp.status}: ${text.slice(0, 300)}` };
+      break; // keep what we already fetched
+    }
+    const data = await resp.json();
+    if (typeof data.total === 'number') total = data.total;
+    for (const r of data.results || []) raw.push(r);
+    after = data.paging && data.paging.next && data.paging.next.after;
+    if (!after || raw.length >= MAX_RECORDS) break;
   }
 
-  const data = await resp.json();
-  const results = (data.results || []).map((r) => ({
+  const results = raw.map((r) => ({
     id: r.id,
     summary: summarize(objectType, r.properties || {}),
     url: recordUrl(objectType, r.id),
   }));
-  return { ok: true, object_type: objectType, count: results.length, total: data.total, results };
+  if (!total) total = results.length;
+  const truncated = results.length < total;
+  const out = { ok: true, object_type: objectType, count: results.length, total, truncated, results };
+
+  // For deals, compute an EXACT sum of `amount` server-side, so the model reports a
+  // precise total instead of adding rows by hand (the source of the wrong/inconsistent
+  // "verify bookings" answers). This sum is over exactly the deals matched by the
+  // filter — so filter to closed-won for a bookings figure.
+  if (objectType === 'deals') {
+    let sum = 0;
+    for (const r of raw) {
+      const a = Number(r.properties && r.properties.amount);
+      if (Number.isFinite(a)) sum += a;
+    }
+    out.sum_amount = sum;
+    out.sum_amount_formatted = `$${sum.toLocaleString('en-US')}`;
+  }
+
+  if (truncated) {
+    out.note = `Only ${results.length} of ${total} matching ${objectType} returned (hit the ${MAX_RECORDS}-record cap). Totals cover only the returned rows — narrow the filter for an exact figure.`;
+  }
+  return out;
 }
 
 module.exports = {
