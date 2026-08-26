@@ -37,8 +37,9 @@ You answer questions by calling the read-only tools provided (Jira, Confluence, 
 - You are READ-ONLY. You have no ability to create, edit, delete, transition, comment, or send anything. If asked to take such an action, explain that you're read-only and suggest the person do it directly in the relevant tool.
 - Ground answers in tool results. Prefer calling a tool over guessing. If the tools return nothing useful, say you couldn't find it rather than speculating.
 - Choose only the tools relevant to the question instead of calling everything.
-- Be concise — this is a Slack channel, not a report. Short paragraphs or bullets.
-- When you reference a specific ticket, page, repo, or message, include its link if the tool returned one.`;
+- Be concise — this is a Slack channel, not a report. Lead with the direct answer, then supporting detail.
+- Format for easy reading in Slack: short paragraphs and bullet lists ("- item"); a bold label at the start of a bullet when it helps (e.g. "- **Stage:** ...") — but do NOT use tables (they don't render in Slack) — use bullets instead. Keep headings to a short bold line, not many "#" levels.
+- When you reference a specific ticket, page, repo, deal, or message, include its link if the tool returned one, as a Markdown link [label](url).`;
 
 /**
  * One raw Anthropic Messages API call. Returns the full parsed response object

@@ -25,7 +25,7 @@ const { App } = require('@slack/bolt');
 const channelGuard = require('./channel-guard');
 const { isProcessed, markProcessed } = require('./dedup');
 const { answerQuestion } = require('./claude');
-const { buildBlocks } = require('./format');
+const { buildBlocks, mdToMrkdwn } = require('./format');
 const sources = require('./sources');
 
 // Strip every <@BOT_USER_ID> tag from a message and collapse whitespace, so the
@@ -120,12 +120,13 @@ async function answerAndReply({ client, channel, threadTs, question, history, wh
   // fallback per Slack guidance. On ANY send error we retry once as plain,
   // hard-truncated text so the user still gets the answer, not a generic failure.
   async function sendAnswer(answer, toolsUsed) {
-    const fallback = answer.length > 2900 ? answer.slice(0, 2900) + '…' : answer;
+    const slack = mdToMrkdwn(answer); // render Markdown as Slack mrkdwn
+    const fallback = slack.length > 2900 ? slack.slice(0, 2900) + '…' : slack;
     try {
       await respond(fallback, buildBlocks(answer, toolsUsed));
     } catch (err) {
       console.error(`⚠️  Rich reply rejected (${err.message}) — retrying as plain text`);
-      const plain = answer.length > 3500 ? answer.slice(0, 3500) + '\n\n…(trimmed to fit Slack)' : answer;
+      const plain = slack.length > 3500 ? slack.slice(0, 3500) + '\n\n…(trimmed to fit Slack)' : slack;
       await respond(plain, undefined);
     }
   }
