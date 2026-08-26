@@ -140,6 +140,13 @@ async function answerAndReply({ client, channel, threadTs, question, history, wh
     });
     await sendAnswer(text, toolsUsed);
     console.log(`✅ Answered (${toolsUsed.length ? toolsUsed.join(', ') : 'no tools'})`);
+    if (process.env.BOT_DEBUG === 'true') {
+      // Ops-only preview so we can see ask-vs-answer while calibrating. First line
+      // + a marker if it looks like a clarifying question. Never shown to users.
+      const preview = text.replace(/\s+/g, ' ').slice(0, 160);
+      const asked = /\?\s*$/.test(text.trim()) || toolsUsed.length === 0;
+      console.log(`   ${asked ? '❓ CLARIFY' : '💬 answer'}: ${preview}`);
+    }
   } catch (err) {
     console.error('Error answering:', err);
     await respond('Sorry — I ran into an error trying to answer that. Please try again, or let someone know if it keeps happening.');
