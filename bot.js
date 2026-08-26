@@ -113,6 +113,23 @@ async function answerAndReply({ client, channel, threadTs, question, history, wh
       ? client.chat.update({ channel, ts: thinking.ts, text, blocks })
       : client.chat.postMessage({ channel, thread_ts: threadTs, text, blocks });
 
+  // Send the answer, degrading gracefully if Slack rejects the rich message.
+  // A truncated answer (hit max_tokens) can end on a malformed mrkdwn link, and a
+  // very long one can exceed a Slack limit — either surfaces as an API error
+  // (e.g. msg_too_long). The blocks carry the full content; `text` is a short
+  // fallback per Slack guidance. On ANY send error we retry once as plain,
+  // hard-truncated text so the user still gets the answer, not a generic failure.
+  async function sendAnswer(answer, toolsUsed) {
+    const fallback = answer.length > 2900 ? answer.slice(0, 2900) + '…' : answer;
+    try {
+      await respond(fallback, buildBlocks(answer, toolsUsed));
+    } catch (err) {
+      console.error(`⚠️  Rich reply rejected (${err.message}) — retrying as plain text`);
+      const plain = answer.length > 3500 ? answer.slice(0, 3500) + '\n\n…(trimmed to fit Slack)' : answer;
+      await respond(plain, undefined);
+    }
+  }
+
   try {
     // BOT_DEBUG=true traces tool calls to the SERVER console only (stderr) — an
     // ops diagnostic that never touches the reply text shown to Slack users.
@@ -120,7 +137,7 @@ async function answerAndReply({ client, channel, threadTs, question, history, wh
       history,
       debug: process.env.BOT_DEBUG === 'true',
     });
-    await respond(text, buildBlocks(text, toolsUsed));
+    await sendAnswer(text, toolsUsed);
     console.log(`✅ Answered (${toolsUsed.length ? toolsUsed.join(', ') : 'no tools'})`);
   } catch (err) {
     console.error('Error answering:', err);

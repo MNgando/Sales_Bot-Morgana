@@ -16,7 +16,10 @@ const fetch = require('node-fetch');
 const realSources = require('./sources');
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-4-6';
-const CLAUDE_MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS || 1500);
+// 2048 (~6k chars, still well within Slack's message limits) gives multi-part
+// answers room to finish instead of being cut off mid-sentence — a truncated
+// answer can end on a malformed mrkdwn link that Slack then rejects.
+const CLAUDE_MAX_TOKENS = Number(process.env.CLAUDE_MAX_TOKENS || 2048);
 
 const CLAUDE_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const CLAUDE_MAX_ATTEMPTS = 3;

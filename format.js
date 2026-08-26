@@ -41,11 +41,21 @@ function sourceLabels(toolsUsed = []) {
   return labels;
 }
 
+// Slack allows at most 50 blocks per message. Cap sections well under that
+// (leaving room for the context block) so a very long answer can't overflow.
+const MAX_SECTIONS = 45;
+
 function buildBlocks(answer, toolsUsed = []) {
-  const blocks = chunk(answer).map((text) => ({
+  const pieces = chunk(answer);
+  const trimmed = pieces.length > MAX_SECTIONS;
+  const kept = trimmed ? pieces.slice(0, MAX_SECTIONS) : pieces;
+  const blocks = kept.map((text) => ({
     type: 'section',
     text: { type: 'mrkdwn', text },
   }));
+  if (trimmed) {
+    blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: '…(answer trimmed to fit Slack)' }] });
+  }
 
   const labels = sourceLabels(toolsUsed);
   if (labels.length) {
