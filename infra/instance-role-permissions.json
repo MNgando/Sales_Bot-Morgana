@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadOwnSecretOnly",
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:us-east-1:572693800901:secret:istari-sales-bot-morgana-*"
+    },
+    {
+      "Sid": "ShipLogsToOwnGroupOnly",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": [
+        "arn:aws:logs:us-east-1:572693800901:log-group:/sales-bot-morgana",
+        "arn:aws:logs:us-east-1:572693800901:log-group:/sales-bot-morgana:*"
+      ]
+    }
+  ]
+}
