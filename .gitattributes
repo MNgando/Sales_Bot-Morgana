@@ -1,0 +1,6 @@
+# Shell scripts + templates run on Linux — force LF so bash doesn't choke on \r.
+*.sh            text eol=lf
+*.tpl           text eol=lf
+systemd/*.service text eol=lf
+# PowerShell stays CRLF for Windows.
+*.ps1           text eol=crlf
