@@ -12,3 +12,4 @@ crash.log
 # (the *.example files ARE committed)
 infra/terraform.tfvars
 infra/*.secrets.json
+infra/backend.hcl

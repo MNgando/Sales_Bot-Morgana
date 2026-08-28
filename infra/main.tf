@@ -8,24 +8,26 @@ terraform {
     }
   }
 
-  # SHARED STATE in S3 — so anyone with account creds (e.g. an admin with IAM
-  # permissions) can run plan/apply against the same state, from their own machine.
+  # SHARED STATE in S3 — PARTIAL backend config. The bucket name is account-specific
+  # (Terraform backends can't use variables), so it is NOT hardcoded here; it's
+  # supplied at init time. This keeps the repo account-agnostic.
   #
-  # ONE-TIME SETUP before `terraform init`:
-  #   1. Create the bucket: `bash create-state-bucket.sh`  (needs S3 perms only,
-  #      which PowerUserAccess has). It enables versioning + encryption + blocks
-  #      public access.
-  #   2. If you already have LOCAL state here from an earlier apply, migrate it up:
-  #        terraform init -migrate-state     (answer "yes" to copy it to S3)
-  #      Otherwise a plain `terraform init` configures the backend.
+  # ONE-TIME SETUP (works in whatever account your creds point at):
+  #   1. Create the bucket + generate backend.hcl:
+  #        pwsh: powershell -ExecutionPolicy Bypass -File .\create-state-bucket.ps1
+  #        bash: bash create-state-bucket.sh
+  #      The script derives the bucket name from your account id and writes it to
+  #      backend.hcl (git-ignored).
+  #   2. terraform init -backend-config=backend.hcl
+  #      (add -reconfigure when switching to a different account/bucket, or
+  #       -migrate-state to copy existing state up).
   #
   # use_lockfile = S3-native state locking (Terraform 1.10+) — no DynamoDB table.
   backend "s3" {
-    bucket       = "istari-sales-bot-morgana-tfstate-572693800901"
     key          = "sales-bot-morgana/terraform.tfstate"
-    region       = "us-east-1"
     encrypt      = true
     use_lockfile = true
+    # bucket + region come from backend.hcl at init time.
   }
 }
 

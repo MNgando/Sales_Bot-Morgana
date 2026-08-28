@@ -51,19 +51,21 @@ Est. cost: ~**$3/mo** (t4g.micro) — NAT is already paid for by the shared VPC.
 cd infra
 cp terraform.tfvars.example terraform.tfvars   # then fill in vpc_id, nat_gateway_id, az, subnet_cidr
 
-# State lives in S3 (shared) — create the bucket once, then init.
-bash create-state-bucket.sh                    # idempotent; needs S3 perms only
-terraform init -migrate-state                  # migrate existing local state up (or plain `terraform init` for a fresh start)
+# State lives in S3 (shared). The bucket name is derived from YOUR account id, so
+# nothing is hardcoded — the script creates the bucket and writes backend.hcl.
+powershell -ExecutionPolicy Bypass -File .\create-state-bucket.ps1   # Windows
+# bash create-state-bucket.sh                                        # macOS/Linux/Git Bash
+terraform init -backend-config=backend.hcl     # add -reconfigure when switching accounts
 
-terraform plan      # review — should create ~11 resources, destroy 0
+terraform plan      # review — should create ~14 resources, destroy 0 (fresh account)
 terraform apply
 ```
 
-State backend is S3 (`main.tf`): bucket `istari-sales-bot-morgana-tfstate-572693800901`,
-key `sales-bot-morgana/terraform.tfstate`, native S3 locking. Because state is shared,
-anyone with account creds can run `plan`/`apply` from their own machine after
-`terraform init` — e.g. an admin with IAM permissions can finish the role + instance
-step without your laptop.
+State backend is a **partial** S3 config (`main.tf`): key `sales-bot-morgana/terraform.tfstate`
++ native S3 locking, with `bucket`/`region` supplied at init via `backend.hcl` (generated
+by the script, git-ignored). The bucket is `istari-sales-bot-morgana-tfstate-<ACCOUNT_ID>`
+in whatever account your creds point at. Because state is shared, anyone with account creds
+can run `plan`/`apply` after `terraform init`.
 
 The secret is seeded with `REPLACE_ME` placeholders so `apply` succeeds. Load the real
 values (out of band — never commit them):

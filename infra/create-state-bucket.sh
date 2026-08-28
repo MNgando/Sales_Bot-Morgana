@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 #
-# Create (once) the S3 bucket that holds this project's Terraform state, matching
-# the backend block in main.tf. Safe to re-run — each step is idempotent.
-#
-# Needs only S3 permissions (PowerUserAccess has them). Run with your AWS creds:
+# Create (once) the S3 bucket that holds this project's Terraform state, in
+# WHATEVER account your AWS creds point at, and write backend.hcl for init.
+# Safe to re-run — each step is idempotent. Needs only S3 permissions.
 #   bash create-state-bucket.sh
-#
-# After this succeeds:
-#   terraform init -migrate-state   # if you have local state to move up
-#   terraform init                  # otherwise
 set -euo pipefail
 
 # On Windows Git Bash the AWS CLI is often not on PATH even when it works in
@@ -19,42 +14,47 @@ if ! command -v aws >/dev/null 2>&1; then
   done
 fi
 if ! command -v aws >/dev/null 2>&1; then
-  echo "✖ aws CLI not found. Run from a shell where 'aws --version' works (e.g. PowerShell), or add the AWS CLI to PATH." >&2
+  echo "✖ aws CLI not found. Run from a shell where 'aws --version' works, or use create-state-bucket.ps1 in PowerShell." >&2
   exit 1
 fi
 
-BUCKET="istari-sales-bot-morgana-tfstate-572693800901"
-REGION="us-east-1"
+REGION="${AWS_REGION:-${AWS_DEFAULT_REGION:-us-east-1}}"
 
-echo "▶ Ensuring S3 state bucket: $BUCKET ($REGION)"
+# Account id -> bucket name (nothing hardcoded to one account); doubles as the
+# credentials check.
+ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
+BUCKET="istari-sales-bot-morgana-tfstate-${ACCOUNT}"
+echo "▶ Account ${ACCOUNT} — ensuring S3 state bucket: ${BUCKET} (${REGION})"
 
 # 1. Create the bucket if it doesn't exist. us-east-1 must NOT get a
-#    LocationConstraint (the API rejects it for that region).
+#    LocationConstraint; every other region requires it.
 if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
   echo "  • bucket already exists — leaving it as-is"
-else
+elif [ "$REGION" = "us-east-1" ]; then
   aws s3api create-bucket --bucket "$BUCKET" --region "$REGION"
+  echo "  • created bucket"
+else
+  aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" \
+    --create-bucket-configuration "LocationConstraint=${REGION}"
   echo "  • created bucket"
 fi
 
-# 2. Versioning — keep state history so a bad apply can be rolled back.
-aws s3api put-bucket-versioning \
-  --bucket "$BUCKET" \
+aws s3api put-bucket-versioning --bucket "$BUCKET" \
   --versioning-configuration Status=Enabled
 echo "  • versioning enabled"
 
-# 3. Default encryption at rest (SSE-S3 / AES256).
-aws s3api put-bucket-encryption \
-  --bucket "$BUCKET" \
+aws s3api put-bucket-encryption --bucket "$BUCKET" \
   --server-side-encryption-configuration \
   '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"},"BucketKeyEnabled":true}]}'
 echo "  • default encryption enabled"
 
-# 4. Block all public access — state can contain sensitive values.
-aws s3api put-public-access-block \
-  --bucket "$BUCKET" \
+aws s3api put-public-access-block --bucket "$BUCKET" \
   --public-access-block-configuration \
   BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
 echo "  • public access blocked"
 
-echo "✓ State bucket ready. Next: terraform init -migrate-state  (or: terraform init)"
+# Write backend.hcl (git-ignored) for `terraform init -backend-config=backend.hcl`.
+printf 'bucket = "%s"\nregion = "%s"\n' "$BUCKET" "$REGION" > "$(dirname "$0")/backend.hcl"
+echo "  • wrote backend.hcl"
+
+echo "✓ State bucket ready. Next: terraform init -backend-config=backend.hcl"
