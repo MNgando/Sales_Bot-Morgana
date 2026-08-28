@@ -11,6 +11,18 @@
 #   terraform init                  # otherwise
 set -euo pipefail
 
+# On Windows Git Bash the AWS CLI is often not on PATH even when it works in
+# PowerShell. Find aws.exe in its standard install locations.
+if ! command -v aws >/dev/null 2>&1; then
+  for d in "/c/Program Files/Amazon/AWSCLIV2" "/c/Program Files (x86)/Amazon/AWSCLIV2"; do
+    if [ -x "$d/aws.exe" ]; then PATH="$PATH:$d"; break; fi
+  done
+fi
+if ! command -v aws >/dev/null 2>&1; then
+  echo "✖ aws CLI not found. Run from a shell where 'aws --version' works (e.g. PowerShell), or add the AWS CLI to PATH." >&2
+  exit 1
+fi
+
 BUCKET="istari-sales-bot-morgana-tfstate-572693800901"
 REGION="us-east-1"
 
