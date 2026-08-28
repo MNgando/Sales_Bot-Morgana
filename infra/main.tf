@@ -8,14 +8,25 @@ terraform {
     }
   }
 
-  # LOCAL STATE (default backend): terraform.tfstate lives in this infra/ dir.
-  # We deploy into account 572693800901, which does NOT have signal-bot's S3
-  # state bucket (that's in a different account), so a remote S3 backend isn't
-  # available here. Local state is fine for a single-operator deploy. To make it
-  # team-shareable later, create an S3 bucket in THIS account and add a
-  # `backend "s3" { bucket = "...", key = "sales-bot-morgana/terraform.tfstate",
-  # region = "us-east-1", encrypt = true, use_lockfile = true }` block, then
-  # `terraform init -migrate-state`.
+  # SHARED STATE in S3 — so anyone with account creds (e.g. an admin with IAM
+  # permissions) can run plan/apply against the same state, from their own machine.
+  #
+  # ONE-TIME SETUP before `terraform init`:
+  #   1. Create the bucket: `bash create-state-bucket.sh`  (needs S3 perms only,
+  #      which PowerUserAccess has). It enables versioning + encryption + blocks
+  #      public access.
+  #   2. If you already have LOCAL state here from an earlier apply, migrate it up:
+  #        terraform init -migrate-state     (answer "yes" to copy it to S3)
+  #      Otherwise a plain `terraform init` configures the backend.
+  #
+  # use_lockfile = S3-native state locking (Terraform 1.10+) — no DynamoDB table.
+  backend "s3" {
+    bucket       = "istari-sales-bot-morgana-tfstate-572693800901"
+    key          = "sales-bot-morgana/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {
